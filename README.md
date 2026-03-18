@@ -2,6 +2,36 @@
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.2.
 
+## Quick Start (Recommended)
+
+**Option 1: Use the startup script (Windows)**
+```bash
+double-click start.bat
+```
+
+**Option 2: Use npm command**
+```bash
+npm run dev
+```
+
+Both options will start:
+- Backend server: http://127.0.0.1:3008
+- Frontend application: http://localhost:4200
+
+## Manual Start
+
+If you prefer to start services separately:
+
+1. **Start the backend server:**
+```bash
+npm run server
+```
+
+2. **Start the Angular frontend (in another terminal):**
+```bash
+ng serve
+```
+
 ## Development server
 
 To start a local development server, run:
@@ -11,6 +41,13 @@ ng serve
 ```
 
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+
+## Important Notes
+
+- The backend server must be running for the application to work properly
+- The backend runs on port 3008 and handles Excel file operations
+- CORS is configured to allow requests from http://localhost:4200
+- Excel file location: `T:\Lib-Proj\library.xlsx`
 
 ## Code scaffolding
 
