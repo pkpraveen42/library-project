@@ -41,15 +41,16 @@ export class App implements OnInit {
   // Dropdown options
   supplyOptions = ['Govt supply', 'Private'];
   rackOptions = ['GF-Rack-A', 'GF-RACK-B', 'GF-RACK-C'];
-  
+
   // Design purpose dropdowns
   stateOptions = ['TamilNadu (TN)'];
   districtOptions = ['Coimbatore (CBE)'];
   libraryPlaceOptions = ['Ganapathy (G)'];
-  
+
   selectedState = 'TamilNadu (TN)';
   selectedDistrict = 'Coimbatore (CBE)';
   selectedLibraryPlace = 'Ganapathy (G)';
+  excelPath = '';
 
   // Per-column search
   colSearch = {
@@ -72,17 +73,67 @@ export class App implements OnInit {
   pageNumbers: number[] = [];
 
   ngOnInit() {
-    console.log('App: Initializing and subscribing');
-    this.bookService.getBooks().subscribe(data => {
-      console.log('App: Received books from service:', data);
-      this.books = [...(data || [])];
-      
-      // Use setTimeout to ensure Angular's change detection picks this up
-      setTimeout(() => {
-        this.applyFilters();
-        this.cdr.detectChanges();
-      }, 0);
+    console.log('App: Component initialized, subscribing to BookService');
+
+    // Load initial excel path from server
+    this.bookService.getExcelPath().subscribe({
+      next: (config) => {
+        if (config && config.path) {
+          this.excelPath = config.path;
+        }
+      },
+      error: (err) => console.error('App: Failed to load excel path config:', err)
     });
+
+    this.bookService.getBooks().subscribe({
+      next: (data) => {
+        console.log(`App: Subscription received ${data?.length || 0} books`);
+        if (data && data.length > 0) {
+          console.log('App: First book received:', JSON.stringify(data[0]));
+        }
+        this.books = [...(data || [])];
+
+        // Ensure Angular's change detection picks this up after the next tick
+        setTimeout(() => {
+          console.log('App: Applying filters after data reception');
+          this.applyFilters();
+          this.cdr.detectChanges();
+        }, 10);
+      },
+      error: (err) => {
+        console.error('App: Failed to subscribe to books subject:', err);
+      }
+    });
+  }
+
+  updateExcelPath() {
+    if (!this.excelPath) return;
+    this.bookService.updateExcelPath(this.excelPath).subscribe({
+      next: (res) => {
+        alert('Excel path updated successfully!');
+        this.manualRefresh();
+      },
+      error: (err) => alert('Failed to update Excel path: ' + (err.error?.error || err.message))
+    });
+  }
+
+  manualRefresh() {
+    console.log('App: Manual refresh requested for path:', this.excelPath);
+    if (this.excelPath) {
+      // Sync path to server, then refresh
+      this.bookService.updateExcelPath(this.excelPath).subscribe({
+        next: () => {
+          console.log('App: Path synced for refresh');
+          this.bookService.refreshData();
+        },
+        error: (err) => {
+          console.error('App: Failed to sync path before refresh:', err);
+          this.bookService.refreshData(); // Try refresh anyway
+        }
+      });
+    } else {
+      this.bookService.refreshData();
+    }
   }
 
   // ── Selection ────────────────────────────────
@@ -119,7 +170,7 @@ export class App implements OnInit {
     if (this.books.length === 0) {
       return 1;
     }
-    
+
     // S.No is based on array index + 1, so next S.No is length + 1
     return this.books.length + 1;
   }
@@ -141,25 +192,25 @@ export class App implements OnInit {
     const normalizedRack = this.normalizeString(rack);
     const normalizedAccessionNum = this.normalizeString(accessionNum);
     const normalizedPublisher = this.normalizeString(publisher);
-    
+
     for (let i = 0; i < this.books.length; i++) {
       const book = this.books[i];
       if (excludeId && book.id === excludeId) continue; // Skip current book when updating
-      
-      if (this.normalizeString(book.title) === normalizedTitle && 
-          this.normalizeString(book.author) === normalizedAuthor &&
-          this.normalizeString(book.isbn) === normalizedISBN &&
-          this.normalizeString(book.purchaseDate) === normalizedPurchaseDate &&
-          book.price === price &&
-          book.quantity === quantity &&
-          this.normalizeString(book.supply) === normalizedSupply &&
-          this.normalizeString(book.rack) === normalizedRack &&
-          this.normalizeString(book.accessionNum) === normalizedAccessionNum &&
-          this.normalizeString(book.publisher) === normalizedPublisher) {
+
+      if (this.normalizeString(book.title) === normalizedTitle &&
+        this.normalizeString(book.author) === normalizedAuthor &&
+        this.normalizeString(book.isbn) === normalizedISBN &&
+        this.normalizeString(book.purchaseDate) === normalizedPurchaseDate &&
+        book.price === price &&
+        book.quantity === quantity &&
+        this.normalizeString(book.supply) === normalizedSupply &&
+        this.normalizeString(book.rack) === normalizedRack &&
+        this.normalizeString(book.accessionNum) === normalizedAccessionNum &&
+        this.normalizeString(book.publisher) === normalizedPublisher) {
         return { isDuplicate: true, sNo: i + 1 }; // Return S.No (index + 1)
       }
     }
-    
+
     return { isDuplicate: false };
   }
 
@@ -275,56 +326,47 @@ export class App implements OnInit {
 
   // ── Filter ───────────────────────────────────
   applyFilters() {
-    console.log('App: applyFilters starting. Total books:', this.books.length);
-    
-    if (this.books.length === 0) {
-      console.log('App: No books to filter.');
+    console.log('App: Starting filter process. Total records:', this.books.length);
+
+    if (!this.books || this.books.length === 0) {
+      console.warn('App: No books available to filter.');
       this.filteredBooks = [];
       this.currentPage = 1;
       this.buildPagination();
+      this.cdr.detectChanges();
       return;
     }
 
     this.filteredBooks = this.books.filter((book, index) => {
-      const bTitle = (book.title || '').toString().toLowerCase();
-      const bAuthor = (book.author || '').toString().toLowerCase();
-      const bDate = (book.purchaseDate || '').toString();
-      const bPrice = (book.price || 0).toString();
-      const bQty = (book.quantity || 0).toString();
-      const bSupply = (book.supply || '').toString().toLowerCase();
-      const bRack = (book.rack || '').toString().toLowerCase();
-      const bAccession = (book.accessionNum || '').toString().toLowerCase();
-      const bPublisher = (book.publisher || '').toString().toLowerCase();
-      
-      // Get the actual S.No from the original books array
-      const originalIndex = this.books.findIndex(b => b.id === book.id);
-      const bSNo = (originalIndex + 1).toString(); // S.No is original index + 1
+      // Helper to match column search, handles null/undefined
+      const match = (val: any, search: string) => {
+        if (!search) return true;
+        const normalizedVal = (val || '').toString().toLowerCase();
+        return normalizedVal.includes(search.toLowerCase());
+      };
 
-      console.log(`Filtering book - ID: ${book.id}, Original Index: ${originalIndex}, S.No: ${bSNo}, Search S.No: "${this.colSearch.sNo}"`);
+      const matchTitle = match(book.title, this.colSearch.title);
+      const matchAuthor = match(book.author, this.colSearch.author);
+      const matchDate = match(book.purchaseDate, this.colSearch.purchaseDate);
+      const matchPrice = match(book.price, this.colSearch.price);
+      const matchQty = match(book.quantity, this.colSearch.quantity);
+      const matchSupply = match(book.supply, this.colSearch.supply);
+      const matchRack = match(book.rack, this.colSearch.rack);
+      const matchAccession = match(book.accessionNum, this.colSearch.accessionNum);
+      const matchPublisher = match(book.publisher, this.colSearch.publisher);
 
-      const matchTitle = !this.colSearch.title || bTitle.includes(this.colSearch.title.toLowerCase());
-      const matchAuthor = !this.colSearch.author || bAuthor.includes(this.colSearch.author.toLowerCase());
-      const matchDate = !this.colSearch.purchaseDate || bDate.includes(this.colSearch.purchaseDate);
-      const matchPrice = !this.colSearch.price || bPrice.includes(this.colSearch.price);
-      const matchQty = !this.colSearch.quantity || bQty.includes(this.colSearch.quantity);
-      const matchSupply = !this.colSearch.supply || bSupply.includes(this.colSearch.supply.toLowerCase());
-      const matchRack = !this.colSearch.rack || bRack.includes(this.colSearch.rack.toLowerCase());
-      const matchAccession = !this.colSearch.accessionNum || bAccession.includes(this.colSearch.accessionNum.toLowerCase());
-      const matchPublisher = !this.colSearch.publisher || bPublisher.includes(this.colSearch.publisher.toLowerCase());
-      const matchSNo = !this.colSearch.sNo || bSNo.includes(this.colSearch.sNo);
-      
-      const isMatch = matchTitle && matchAuthor && matchDate && matchPrice && matchQty && matchSupply && matchRack && matchAccession && matchPublisher && matchSNo;
-      
-      if (!isMatch) {
-         console.log(`App: Book at index ${index} excluded. S.No: ${bSNo}, MatchSNo: ${matchSNo}, Search: "${this.colSearch.sNo}"`);
-      }
-      
-      return isMatch;
+      // S.No search (against index + 1)
+      const sNo = (index + 1).toString();
+      const matchSNo = !this.colSearch.sNo || sNo.includes(this.colSearch.sNo);
+
+      return matchTitle && matchAuthor && matchDate && matchPrice && matchQty &&
+        matchSupply && matchRack && matchAccession && matchPublisher && matchSNo;
     });
 
-    console.log('App: applyFilters finished. Filtered count:', this.filteredBooks.length);
+    console.log(`App: Filter completed. Matches found: ${this.filteredBooks.length}`);
     this.currentPage = 1;
     this.buildPagination();
+    this.cdr.detectChanges();
   }
 
   // ── Pagination ───────────────────────────────
@@ -338,11 +380,11 @@ export class App implements OnInit {
   updatePagedBooks() {
     this.pageSize = Number(this.pageSize) || 10;
     this.currentPage = Number(this.currentPage) || 1;
-    
+
     console.log(`App: Updating paged books. Page: ${this.currentPage}, Size: ${this.pageSize}`);
     const start = (this.currentPage - 1) * this.pageSize;
     this.pagedBooks = this.filteredBooks.slice(start, start + this.pageSize);
-    
+
     console.log('App: Current pagedBooks content:', JSON.stringify(this.pagedBooks));
     this.cdr.detectChanges(); // Force UI update
   }

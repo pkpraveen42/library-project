@@ -12,10 +12,26 @@ export class BookService {
   private booksSubject = new BehaviorSubject<Book[]>([]);
 
   private http = inject(HttpClient);
-  private apiUrl = '/api/books';
   private backendUrl = 'http://localhost:3008/api/books';
+  // Use relative URL for proxied dev server, full URL for Electron/production
+  private apiUrl = window.location.origin.includes('localhost:4200') ? 'http://localhost:3008/api/books' : '/api/books';
 
   constructor() {
+    this.refreshData();
+  }
+
+  getExcelPath(): Observable<{ path: string }> {
+    const url = this.apiUrl.replace('/books', '/config/path');
+    return this.http.get<{ path: string }>(url);
+  }
+
+  updateExcelPath(newPath: string): Observable<any> {
+    console.log('BookService: Updating Excel path:', newPath);
+    const url = this.apiUrl.replace('/books', '/config/path');
+    return this.http.post(url, { path: newPath });
+  }
+
+  refreshData(): void {
     this.loadInitialData();
   }
 
@@ -59,20 +75,26 @@ export class BookService {
   }
 
   private loadInitialData(): void {
+    console.log(`BookService: Fetching data from: ${this.apiUrl}`);
     // Fetch the latest data from the Excel file
     this.http.get<Book[]>(this.apiUrl).subscribe({
       next: (data) => {
-        console.log(`BookService: Received ${data?.length || 0} books from Excel`);
+        console.log(`BookService: Received ${data?.length || 0} books from server`);
         if (data && data.length > 0) {
-          console.log('BookService: Sample data structure:', JSON.stringify(data[0]));
+          console.log('BookService: First record:', JSON.stringify(data[0]));
+        } else {
+          console.warn('BookService: Server returned empty book list.');
         }
         this.books = data || [];
         this.booksSubject.next(this.books);
       },
       error: (err) => {
-        console.error('Failed to load from Excel:', err);
-        console.error('Error details:', err.message || JSON.stringify(err));
-        this.booksSubject.next([]); 
+        console.error('BookService Error fetching from server:', err);
+        console.error('API URL used:', this.apiUrl);
+        if (err.status === 0) {
+          console.error('Could not reach backend. Is the server running on port 3008?');
+        }
+        this.booksSubject.next([]);
       }
     });
   }

@@ -27,6 +27,27 @@
       </div>
     </div>
 
+    <!-- Excel Path Row -->
+    <div class="design-row"
+      style="margin-top: 15px; border-top: 1px dashed #eee; padding-top: 15px; display: flex; align-items: flex-end; gap: 20px;">
+      <div class="design-field-group" style="flex: 1;">
+        <label style="display: block; font-weight: 500; font-size: 0.9rem; color: #4a5568; margin-bottom: 5px;">Excel
+          File Path</label>
+        <input type="text" [(ngModel)]="excelPath" placeholder="T:\\Lib-Proj\\library.xlsx"
+          style="width: 100%; border: 1px solid #ddd; padding: 10px 15px; border-radius: 6px; box-sizing: border-box; font-family: inherit; font-size: 0.95rem;" />
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button (click)="updateExcelPath()"
+          style="background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s ease; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+          Apply Path
+        </button>
+        <button (click)="manualRefresh()"
+          style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: all 0.2s ease; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+          Refresh Records
+        </button>
+      </div>
+    </div>
+
     <!-- Form Header -->
     <div class="form-header">
       <h3>Book Information</h3>
@@ -36,7 +57,8 @@
     <div class="form-row">
       <div class="field-group">
         <label>S.No</label>
-        <input type="text" [value]="isEditMode ? (currentBookIndex + 1) : getNextSerialNumber()" disabled placeholder="S.No" class="sno-input" />
+        <input type="text" [value]="isEditMode ? (currentBookIndex + 1) : getNextSerialNumber()" disabled
+          placeholder="S.No" class="sno-input" />
       </div>
     </div>
 
@@ -44,18 +66,18 @@
     <div class="form-row">
       <div class="field-group">
         <label>Book Title</label>
-        <input type="text" [(ngModel)]="title" placeholder="Book Title" 
-               oninput="this.value = this.value.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, ' ')" />
+        <input type="text" [(ngModel)]="title" placeholder="Book Title"
+          oninput="this.value = this.value.replace(/\s+/g, ' ')" />
       </div>
       <div class="field-group">
         <label>Author</label>
-        <input type="text" [(ngModel)]="author" placeholder="Author" 
-               oninput="this.value = this.value.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, ' ')" />
+        <input type="text" [(ngModel)]="author" placeholder="Author"
+          oninput="this.value = this.value.replace(/\s+/g, ' ')" />
       </div>
       <div class="field-group">
         <label>ISBN</label>
-        <input type="text" [(ngModel)]="isbn" placeholder="ISBN" 
-               oninput="this.value = this.value.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, ' ')" />
+        <input type="text" [(ngModel)]="isbn" placeholder="ISBN"
+          oninput="this.value = this.value.replace(/\s+/g, ' ')" />
       </div>
     </div>
 
@@ -67,13 +89,13 @@
       </div>
       <div class="field-group">
         <label>Price</label>
-        <input type="number" [(ngModel)]="price" placeholder="Price" 
-               oninput="this.value = this.value.replace(/[^0-9.]/g, '')" />
+        <input type="number" [(ngModel)]="price" placeholder="Price"
+          oninput="this.value = this.value.replace(/[^0-9.]/g, '')" />
       </div>
       <div class="field-group">
         <label>Qty</label>
-        <input type="number" [(ngModel)]="quantity" placeholder="Quantity" 
-               oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
+        <input type="number" [(ngModel)]="quantity" placeholder="Quantity"
+          oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
       </div>
     </div>
 
@@ -93,8 +115,8 @@
       </div>
       <div class="field-group">
         <label>Accession Number</label>
-        <input type="text" [value]="isEditMode ? accessionNum : generateAccessionNumber()" disabled placeholder="Accession Number" 
-               class="accession-input" />
+        <input type="text" [value]="isEditMode ? accessionNum : generateAccessionNumber()" disabled
+          placeholder="Accession Number" class="accession-input" />
       </div>
     </div>
 
@@ -102,8 +124,8 @@
     <div class="form-row">
       <div class="field-group">
         <label>Publisher</label>
-        <input type="text" [(ngModel)]="publisher" placeholder="Publisher" 
-               oninput="this.value = this.value.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, ' ')" />
+        <input type="text" [(ngModel)]="publisher" placeholder="Publisher"
+          oninput="this.value = this.value.replace(/\s+/g, ' ')" />
       </div>
     </div>
 
@@ -111,7 +133,8 @@
     <div class="button-row">
       <button class="btn-action btn-add" (click)="addBook()" [disabled]="isEditMode">Add</button>
       <button class="btn-action btn-edit" (click)="editMode()" [disabled]="!currentBookId">Edit</button>
-      <button class="btn-action btn-update" (click)="updateBook()" [disabled]="!currentBookId || !isEditMode">Update</button>
+      <button class="btn-action btn-update" (click)="updateBook()"
+        [disabled]="!currentBookId || !isEditMode">Update</button>
       <button class="btn-action btn-delete" (click)="deleteSelectedBook()" [disabled]="!currentBookId">Delete</button>
       <button class="btn-action btn-clear" (click)="resetForm()">Clear</button>
     </div>
@@ -144,24 +167,31 @@
           </tr>
           <!-- Per-Column Search Row -->
           <tr class="search-row">
-            <th><input type="text" [(ngModel)]="colSearch.sNo" (ngModelChange)="applyFilters()" placeholder="Search..." class="col-search" /></th>
-            <th><input type="text" [(ngModel)]="colSearch.title" (ngModelChange)="applyFilters()" placeholder="Search..." class="col-search" /></th>
-            <th><input type="text" [(ngModel)]="colSearch.author" (ngModelChange)="applyFilters()" placeholder="Search..." class="col-search" /></th>
-            <th><input type="text" [(ngModel)]="colSearch.purchaseDate" (ngModelChange)="applyFilters()" placeholder="Search..." class="col-search" /></th>
-            <th><input type="text" [(ngModel)]="colSearch.price" (ngModelChange)="applyFilters()" placeholder="Search..." class="col-search" /></th>
-            <th><input type="text" [(ngModel)]="colSearch.quantity" (ngModelChange)="applyFilters()" placeholder="Search..." class="col-search" /></th>
-            <th><input type="text" [(ngModel)]="colSearch.supply" (ngModelChange)="applyFilters()" placeholder="Search..." class="col-search" /></th>
-            <th><input type="text" [(ngModel)]="colSearch.rack" (ngModelChange)="applyFilters()" placeholder="Search..." class="col-search" /></th>
-            <th><input type="text" [(ngModel)]="colSearch.accessionNum" (ngModelChange)="applyFilters()" placeholder="Search..." class="col-search" /></th>
-            <th><input type="text" [(ngModel)]="colSearch.publisher" (ngModelChange)="applyFilters()" placeholder="Search..." class="col-search" /></th>
+            <th><input type="text" [(ngModel)]="colSearch.sNo" (ngModelChange)="applyFilters()" placeholder="Search..."
+                class="col-search" /></th>
+            <th><input type="text" [(ngModel)]="colSearch.title" (ngModelChange)="applyFilters()"
+                placeholder="Search..." class="col-search" /></th>
+            <th><input type="text" [(ngModel)]="colSearch.author" (ngModelChange)="applyFilters()"
+                placeholder="Search..." class="col-search" /></th>
+            <th><input type="text" [(ngModel)]="colSearch.purchaseDate" (ngModelChange)="applyFilters()"
+                placeholder="Search..." class="col-search" /></th>
+            <th><input type="text" [(ngModel)]="colSearch.price" (ngModelChange)="applyFilters()"
+                placeholder="Search..." class="col-search" /></th>
+            <th><input type="text" [(ngModel)]="colSearch.quantity" (ngModelChange)="applyFilters()"
+                placeholder="Search..." class="col-search" /></th>
+            <th><input type="text" [(ngModel)]="colSearch.supply" (ngModelChange)="applyFilters()"
+                placeholder="Search..." class="col-search" /></th>
+            <th><input type="text" [(ngModel)]="colSearch.rack" (ngModelChange)="applyFilters()" placeholder="Search..."
+                class="col-search" /></th>
+            <th><input type="text" [(ngModel)]="colSearch.accessionNum" (ngModelChange)="applyFilters()"
+                placeholder="Search..." class="col-search" /></th>
+            <th><input type="text" [(ngModel)]="colSearch.publisher" (ngModelChange)="applyFilters()"
+                placeholder="Search..." class="col-search" /></th>
           </tr>
         </thead>
         <tbody>
-          <tr
-            *ngFor="let book of pagedBooks; let i = index"
-            [class.selected-row]="selectedBook?.id === book.id"
-            (click)="selectBook(book)"
-            style="cursor:pointer">
+          <tr *ngFor="let book of pagedBooks; let i = index" [class.selected-row]="selectedBook?.id === book.id"
+            (click)="selectBook(book)" style="cursor:pointer">
             <td>{{ (currentPage - 1) * pageSize + i + 1 }}</td>
             <td>{{ book.title }}</td>
             <td>{{ book.author }}</td>

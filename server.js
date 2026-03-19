@@ -8,9 +8,9 @@ const path = require('path');
 const app = express();
 const port = 3008;
 
-// Enable CORS for all routes
+// Enable CORS for all routes - allow all for electron/dev flexibility
 app.use(cors({
-  origin: ['http://localhost:4200', 'http://localhost:4201', 'http://127.0.0.1:4200', 'http://127.0.0.1:4201'],
+  origin: true, // Dynamically allow any origin that makes the request
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
@@ -28,11 +28,27 @@ app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
-const EXCEL_PATH = 'T:\\Lib-Proj\\library.xlsx';
+let excelPath = '';
+
+// Endpoints for dynamic config
+app.get('/api/config/path', (req, res) => {
+  res.status(200).send({ path: excelPath });
+});
+
+app.post('/api/config/path', (req, res) => {
+  const { path: newPath } = req.body;
+  if (newPath) {
+    excelPath = newPath;
+    console.log(`Server: Excel path updated to: ${excelPath}`);
+    res.status(200).send({ message: 'Path updated successfully', path: excelPath });
+  } else {
+    res.status(400).send({ error: 'Path is required' });
+  }
+});
 
 function getWorkbook() {
-  if (fs.existsSync(EXCEL_PATH)) {
-    return XLSX.readFile(EXCEL_PATH);
+  if (fs.existsSync(excelPath)) {
+    return XLSX.readFile(excelPath);
   } else {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet([]);
@@ -51,7 +67,7 @@ function saveToExcel(data) {
   try {
     const wb = getWorkbook();
     const sheetName = wb.SheetNames[0] || 'PurchaseRecords';
-    
+
     // Ensure all records have all required fields with defaults
     const normalizedData = data.map(row => ({
       'ID': row['ID'] || '',
@@ -67,19 +83,19 @@ function saveToExcel(data) {
       'Accession Number': row['Accession Number'] || '',
       'Publisher': row['Publisher'] || ''
     }));
-    
+
     const ws = XLSX.utils.json_to_sheet(normalizedData);
-    
+
     // Set column widths
     ws['!cols'] = [
-      { wch: 10 }, { wch: 6 }, { wch: 30 }, { wch: 20 }, 
+      { wch: 10 }, { wch: 6 }, { wch: 30 }, { wch: 20 },
       { wch: 20 }, { wch: 15 }, { wch: 10 }, { wch: 8 },
       { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 20 }
     ];
-    
+
     wb.Sheets[sheetName] = ws;
-    XLSX.writeFile(wb, EXCEL_PATH);
-    console.log(`Server: Successfully saved ${data.length} records to ${EXCEL_PATH}`);
+    XLSX.writeFile(wb, excelPath);
+    console.log(`Server: Successfully saved ${data.length} records to ${excelPath}`);
   } catch (error) {
     if (error.code === 'EBUSY') {
       console.error('Server Error: Excel file is open in another program. Please close it.');
@@ -93,13 +109,21 @@ function saveToExcel(data) {
 // GET all books
 app.get('/api/books', (req, res) => {
   try {
-    const wb = getWorkbook();
+    console.log(`GET /api/books: Request received. Current path: ${excelPath}`);
+
+    if (!fs.existsSync(excelPath)) {
+      console.warn(`GET /api/books: File not found at ${excelPath}`);
+      // Don't error out completely, return empty list but log correctly
+      return res.status(200).send([]);
+    }
+
+    const wb = XLSX.readFile(excelPath);
     const data = getSheetData(wb);
-    console.log(`GET /api/books: Found ${data.length} raw rows in Excel`);
-    
+    console.log(`GET /api/books: Found ${data.length} raw rows in Excel file: ${excelPath}`);
+
     // Map Excel format back to Book model
-    const books = data.map(row => ({
-      id: row['ID'] ? row['ID'].toString() : Date.now().toString(),
+    const books = data.map((row, index) => ({
+      id: row['ID'] ? row['ID'].toString() : (Date.now() + index).toString(),
       title: row['Book Title'] || '',
       author: row['Author'] || '',
       isbn: row['ISBN'] || '',
@@ -111,13 +135,12 @@ app.get('/api/books', (req, res) => {
       accessionNum: row['Accession Number'] || '',
       publisher: row['Publisher'] || ''
     }));
-    
-    console.log(`GET /api/books: Returning ${books.length} records`);
-    console.log('Sample record sample:', JSON.stringify(books[0] || {}));
+
+    console.log(`GET /api/books: Returning ${books.length} mapped records`);
     res.status(200).send(books);
   } catch (error) {
-    console.error('Error reading Excel:', error);
-    res.status(500).send({ error: 'Failed to read Excel file' });
+    console.error('Error in GET /api/books:', error.message);
+    res.status(500).send({ error: 'Failed to read Excel file', details: error.message });
   }
 });
 
@@ -154,69 +177,68 @@ app.post('/api/books', (req, res) => {
 
 // PUT update book
 app.put('/api/books/:id', (req, res) => {
-    try {
-      const id = req.params.id;
-      const updatedBook = req.body;
-      const wb = getWorkbook();
-      const data = getSheetData(wb);
-  
-      const index = data.findIndex(row => row['ID'] == id);
-      if (index !== -1) {
-        data[index] = {
-          ...data[index],
-          'Book Title': updatedBook.title,
-          'Author': updatedBook.author,
-          'ISBN': updatedBook.isbn,
-          'Purchase Date': updatedBook.purchaseDate,
-          'Price': updatedBook.price,
-          'Qty': updatedBook.quantity,
-          'Supply': updatedBook.supply,
-          'Rack': updatedBook.rack,
-          'Accession Number': updatedBook.accessionNum,
-          'Publisher': updatedBook.publisher
-        };
-        console.log(`PUT /api/books/${id}: Updated book`);
-        saveToExcel(data);
-        res.status(200).send({ message: 'Book updated in Excel' });
-      } else {
-        res.status(404).send({ error: 'Book not found' });
-      }
-    } catch (error) {
-      res.status(500).send({ error: 'Failed to update Excel file' });
-    }
-  });
+  try {
+    const id = req.params.id;
+    const updatedBook = req.body;
+    const wb = getWorkbook();
+    const data = getSheetData(wb);
 
+    const index = data.findIndex(row => row['ID'] == id);
+    if (index !== -1) {
+      data[index] = {
+        ...data[index],
+        'Book Title': updatedBook.title,
+        'Author': updatedBook.author,
+        'ISBN': updatedBook.isbn,
+        'Purchase Date': updatedBook.purchaseDate,
+        'Price': updatedBook.price,
+        'Qty': updatedBook.quantity,
+        'Supply': updatedBook.supply,
+        'Rack': updatedBook.rack,
+        'Accession Number': updatedBook.accessionNum,
+        'Publisher': updatedBook.publisher
+      };
+      console.log(`PUT /api/books/${id}: Updated book`);
+      saveToExcel(data);
+      res.status(200).send({ message: 'Book updated in Excel' });
+    } else {
+      res.status(404).send({ error: 'Book not found' });
+    }
+  } catch (error) {
+    res.status(500).send({ error: 'Failed to update Excel file' });
+  }
+});
 // DELETE book
 app.delete('/api/books/:id', (req, res) => {
-    try {
-      const id = req.params.id;
-      console.log(`DELETE request received for ID: ${id}`);
-      const wb = getWorkbook();
-      let data = getSheetData(wb);
-      
-      console.log(`Current books in Excel: ${data.length}`);
-      console.log('Available IDs:', data.map(row => row['ID']));
-  
-      const initialLength = data.length;
-      data = data.filter(row => row['ID'] != id);
-      
-      if (data.length < initialLength) {
-        // Recalculate S.No
-        data = data.map((row, i) => ({ ...row, 'S.No': i + 1 }));
-        console.log(`DELETE /api/books/${id}: Deleted book`);
-        saveToExcel(data);
-        res.status(200).send({ message: 'Book deleted from Excel' });
-      } else {
-        console.log(`Book not found with ID: ${id}`);
-        res.status(404).send({ error: 'Book not found' });
-      }
-    } catch (error) {
-      console.error('DELETE error:', error);
-      res.status(500).send({ error: 'Failed to delete from Excel file' });
-    }
-  });
+  try {
+    const id = req.params.id;
+    console.log(`DELETE request received for ID: ${id}`);
+    const wb = getWorkbook();
+    let data = getSheetData(wb);
 
-app.listen(port, 'localhost', () => {
+    console.log(`Current books in Excel: ${data.length}`);
+    console.log('Available IDs:', data.map(row => row['ID']));
+
+    const initialLength = data.length;
+    data = data.filter(row => row['ID'] != id);
+
+    if (data.length < initialLength) {
+      // Recalculate S.No
+      data = data.map((row, i) => ({ ...row, 'S.No': i + 1 }));
+      console.log(`DELETE /api/books/${id}: Deleted book`);
+      saveToExcel(data);
+      res.status(200).send({ message: 'Book deleted from Excel' });
+    } else {
+      console.log(`Book not found with ID: ${id}`);
+      res.status(404).send({ error: 'Book not found' });
+    }
+  } catch (error) {
+    console.error('DELETE error:', error);
+    res.status(500).send({ error: 'Failed to delete from Excel file' });
+  }
+});
+
+app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
   console.log(`API endpoints available at:`);
   console.log(`  GET    http://localhost:${port}/api/books`);
@@ -225,8 +247,8 @@ app.listen(port, 'localhost', () => {
   console.log(`  DELETE http://localhost:${port}/api/books/:id`);
   console.log(`  Health http://localhost:${port}/health`);
   console.log('');
-  console.log('CORS is enabled for: http://localhost:4200, http://localhost:4201');
-  console.log('Proxy configuration should route /api/* requests here');
+  console.log('CORS is set to dynamic origin (origin: true)');
+  console.log('Excel file path:', excelPath);
 }).on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`Port ${port} is already in use. Please close the other application or use a different port.`);

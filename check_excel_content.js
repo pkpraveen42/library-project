@@ -1,7 +1,7 @@
 const XLSX = require('xlsx');
-const EXCEL_PATH = 'T:\\Lib-Proj\\library.xlsx';
+const excelPath = 'T:\\Lib-Proj\\library.xlsx';
 try {
-  const wb = XLSX.readFile(EXCEL_PATH);
+  const wb = XLSX.readFile(excelPath);
   const sheetName = wb.SheetNames[0];
   const ws = wb.Sheets[sheetName];
   const data = XLSX.utils.sheet_to_json(ws);
