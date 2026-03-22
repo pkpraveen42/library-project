@@ -139,9 +139,14 @@ export class App implements OnInit {
   // ── Selection ────────────────────────────────
   selectBook(book: Book) {
     console.log('App: Selecting book:', book);
+    console.log('App: Before selection - isEditMode:', this.isEditMode);
+    
     this.selectedBook = book;
     this.currentBookId = book.id;
     this.isEditMode = true; // Auto-enable edit mode on selection for easier editing
+    
+    console.log('App: After selection - isEditMode:', this.isEditMode);
+    console.log('App: Book data loaded - title:', this.title, 'author:', this.author);
 
     // Find the global index (S.No) in filteredBooks
     const idx = this.filteredBooks.findIndex(b => b.id === book.id);
@@ -158,6 +163,10 @@ export class App implements OnInit {
     this.rack = book.rack || 'GF-Rack-A';
     this.accessionNum = book.accessionNum || '';
     this.publisher = book.publisher || '';
+    
+    // Force change detection
+    this.cdr.detectChanges();
+    console.log('App: After change detection - title:', this.title);
   }
 
   // ── Helper Functions ───────────────────────────────
@@ -326,7 +335,9 @@ export class App implements OnInit {
 
   // ── Filter ───────────────────────────────────
   applyFilters() {
+    console.log('=== FILTER DEBUG START ===');
     console.log('App: Starting filter process. Total records:', this.books.length);
+    console.log('App: Current search filters:', this.colSearch);
 
     if (!this.books || this.books.length === 0) {
       console.warn('App: No books available to filter.');
@@ -337,6 +348,7 @@ export class App implements OnInit {
       return;
     }
 
+    let filteredCount = 0;
     this.filteredBooks = this.books.filter((book, index) => {
       // Helper to match column search, handles null/undefined
       const match = (val: any, search: string) => {
@@ -359,11 +371,21 @@ export class App implements OnInit {
       const sNo = (index + 1).toString();
       const matchSNo = !this.colSearch.sNo || sNo.includes(this.colSearch.sNo);
 
-      return matchTitle && matchAuthor && matchDate && matchPrice && matchQty &&
+      const isMatch = matchTitle && matchAuthor && matchDate && matchPrice && matchQty &&
         matchSupply && matchRack && matchAccession && matchPublisher && matchSNo;
+      
+      if (isMatch) {
+        filteredCount++;
+        if (filteredCount <= 3 || filteredCount >= this.books.length - 2) {
+          console.log(`App: Filtered book #${filteredCount}:`, book.title, 'ID:', book.id);
+        }
+      }
+      
+      return isMatch;
     });
 
-    console.log(`App: Filter completed. Matches found: ${this.filteredBooks.length}`);
+    console.log('App: Filter completed. Matches found:', this.filteredBooks.length);
+    console.log('=== FILTER DEBUG END ===');
     this.currentPage = 1;
     this.buildPagination();
     this.cdr.detectChanges();
@@ -417,6 +439,20 @@ export class App implements OnInit {
 
   // ── Export to XLSX ───────────────────────────
   exportToExcel() {
+    console.log('=== EXPORT DEBUG START ===');
+    console.log('Export: Total books in system:', this.books.length);
+    console.log('Export: Filtered books count:', this.filteredBooks.length);
+    console.log('Export: Paged books count:', this.pagedBooks.length);
+    console.log('Export: Current page:', this.currentPage);
+    console.log('Export: Page size:', this.pageSize);
+    
+    // Log first and last few filtered books to verify data
+    if (this.filteredBooks.length > 0) {
+      console.log('Export: First filtered book:', this.filteredBooks[0]);
+      console.log('Export: Last filtered book:', this.filteredBooks[this.filteredBooks.length - 1]);
+      console.log('Export: Last filtered book ID:', this.filteredBooks[this.filteredBooks.length - 1]?.id);
+    }
+    
     const data = this.filteredBooks.map((b, i) => ({
       'S.No': i + 1,
       'Book Title': b.title,
@@ -431,11 +467,78 @@ export class App implements OnInit {
       'Publisher': b.publisher
     }));
 
+    console.log('Export: Data array length (before total row):', data.length);
+    
+    // Log the last few entries in the data array
+    if (data.length > 0) {
+      console.log('Export: Last data entry S.No:', data[data.length - 1]['S.No']);
+      console.log('Export: Last data entry title:', data[data.length - 1]['Book Title']);
+    }
+
+    // Add total row at the end
+    if (data.length > 0) {
+      data.push({
+        'S.No': 0,
+        'Book Title': '',
+        'Author': '',
+        'ISBN': '',
+        'Purchase Date': '',
+        'Price': 0,
+        'Qty': this.getTotalQuantity(),
+        'Supply': '',
+        'Rack': '',
+        'Accession Number': '',
+        'Publisher': ''
+      });
+    }
+
+    console.log('Export: Data array length (after total row):', data.length);
+    console.log('Export: Total quantity calculated:', this.getTotalQuantity());
+    console.log('=== EXPORT DEBUG END ===');
+
     const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(data);
     ws['!cols'] = [
       { wch: 6 }, { wch: 30 }, { wch: 20 }, { wch: 20 },
       { wch: 15 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 20 }
     ];
+
+    // Style the total row
+    if (data.length > 0) {
+      const totalRow = data.length - 1;
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+      
+      // Add "Totals" label in the first column of the total row
+      const labelCell = XLSX.utils.encode_cell({ r: totalRow, c: 0 });
+      ws[labelCell] = { 
+        t: 's', 
+        v: 'Totals',
+        s: {
+          font: { bold: true },
+          fill: { patternType: 'solid', fgColor: { rgb: "E3F2FD" } },
+          alignment: { horizontal: 'left' }
+        }
+      };
+      
+      // Style the total quantity cell
+      const qtyCell = XLSX.utils.encode_cell({ r: totalRow, c: 6 }); // Qty column (0-indexed: 6)
+      ws[qtyCell] = {
+        t: 'n',
+        v: this.getTotalQuantity(),
+        s: {
+          font: { bold: true },
+          fill: { patternType: 'solid', fgColor: { rgb: "E3F2FD" } },
+          alignment: { horizontal: 'center' }
+        }
+      };
+      
+      // Clear other cells in total row to avoid unwanted data
+      for (let col = 1; col <= 10; col++) {
+        if (col !== 6) { // Skip Qty column
+          const cell = XLSX.utils.encode_cell({ r: totalRow, c: col });
+          ws[cell] = { t: 's', v: '' };
+        }
+      }
+    }
 
     const wb: XLSX.WorkBook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'PurchaseRecords');
@@ -458,5 +561,13 @@ export class App implements OnInit {
     anchor.download = fileName;
     anchor.click();
     URL.revokeObjectURL(url);
+  }
+
+  // ── Get Total Quantity ───────────────────────
+  getTotalQuantity(): number {
+    if (!this.filteredBooks || this.filteredBooks.length === 0) {
+      return 0;
+    }
+    return this.filteredBooks.reduce((total, book) => total + (Number(book.quantity) || 0), 0);
   }
 }

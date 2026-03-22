@@ -66,18 +66,18 @@
     <div class="form-row">
       <div class="field-group">
         <label>Book Title</label>
-        <input type="text" [(ngModel)]="title" placeholder="Book Title"
-          oninput="this.value = this.value.replace(/\s+/g, ' ')" />
+        <input type="text" [(ngModel)]="title" placeholder="Book Title" 
+           />
       </div>
       <div class="field-group">
         <label>Author</label>
-        <input type="text" [(ngModel)]="author" placeholder="Author"
-          oninput="this.value = this.value.replace(/\s+/g, ' ')" />
+        <input type="text" [(ngModel)]="author" placeholder="Author" 
+           />
       </div>
       <div class="field-group">
         <label>ISBN</label>
-        <input type="text" [(ngModel)]="isbn" placeholder="ISBN"
-          oninput="this.value = this.value.replace(/\s+/g, ' ')" />
+        <input type="text" [(ngModel)]="isbn" placeholder="ISBN" 
+           />
       </div>
     </div>
 
@@ -85,17 +85,18 @@
     <div class="form-row">
       <div class="field-group">
         <label>Purchase Date</label>
-        <input type="date" [(ngModel)]="purchaseDate" (change)="applyFilters()" />
+        <input type="date" [(ngModel)]="purchaseDate" (change)="applyFilters()" 
+           />
       </div>
       <div class="field-group">
         <label>Price</label>
-        <input type="number" [(ngModel)]="price" placeholder="Price"
-          oninput="this.value = this.value.replace(/[^0-9.]/g, '')" />
+        <input type="number" [(ngModel)]="price" placeholder="Price" 
+           />
       </div>
       <div class="field-group">
         <label>Qty</label>
-        <input type="number" [(ngModel)]="quantity" placeholder="Quantity"
-          oninput="this.value = this.value.replace(/[^0-9]/g, '')" />
+        <input type="number" [(ngModel)]="quantity" placeholder="Quantity" 
+           />
       </div>
     </div>
 
@@ -124,8 +125,8 @@
     <div class="form-row">
       <div class="field-group">
         <label>Publisher</label>
-        <input type="text" [(ngModel)]="publisher" placeholder="Publisher"
-          oninput="this.value = this.value.replace(/\s+/g, ' ')" />
+        <input type="text" [(ngModel)]="publisher" placeholder="Publisher" 
+          />
       </div>
     </div>
 
@@ -205,6 +206,11 @@
           </tr>
           <tr *ngIf="pagedBooks.length === 0">
             <td colspan="10" class="no-data">No records found.</td>
+          </tr>
+          <tr class="total-row" *ngIf="filteredBooks.length > 0">
+            <td colspan="5" class="total-label">Total Books</td>
+            <td class="total-quantity">{{ getTotalQuantity() }}</td>
+            <td colspan="4"></td>
           </tr>
         </tbody>
       </table>

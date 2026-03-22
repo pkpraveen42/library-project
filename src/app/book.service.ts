@@ -12,9 +12,10 @@ export class BookService {
   private booksSubject = new BehaviorSubject<Book[]>([]);
 
   private http = inject(HttpClient);
-  private backendUrl = 'http://localhost:3008/api/books';
-  // Use relative URL for proxied dev server, full URL for Electron/production
-  private apiUrl = window.location.origin.includes('localhost:4200') ? 'http://localhost:3008/api/books' : '/api/books';
+  // Use localhost:3008 for both Angular dev server and Electron (file protocol)
+  private apiUrl = (window.location.origin.includes('localhost:4200') || window.location.protocol === 'file:') 
+    ? 'http://localhost:3008/api/books' 
+    : '/api/books';
 
   constructor() {
     this.refreshData();
@@ -54,7 +55,7 @@ export class BookService {
 
   updateBook(updatedBook: Book): void {
     // Sync with Excel backend - use direct URL for PUT
-    this.http.put(`${this.backendUrl}/${updatedBook.id}`, updatedBook).subscribe({
+    this.http.put(`${this.apiUrl}/${updatedBook.id}`, updatedBook).subscribe({
       next: (res) => {
         console.log('Updated in Excel:', res);
         this.loadInitialData(); // Refresh list to ensure UI matches Excel state
@@ -65,7 +66,7 @@ export class BookService {
 
   deleteBook(id: string): void {
     // Sync with Excel backend - use direct URL for DELETE
-    this.http.delete(`${this.backendUrl}/${id}`).subscribe({
+    this.http.delete(`${this.apiUrl}/${id}`).subscribe({
       next: (res) => {
         console.log('Deleted from Excel:', res);
         this.loadInitialData(); // Refresh list after deletion

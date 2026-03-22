@@ -332,6 +332,30 @@ body {
   box-shadow: inset 4px 0 0 0 var(--primary);
 }
 
+/* ── Total Row ── */
+.records-table tbody tr.total-row {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  font-weight: 700;
+  border-top: 2px solid #0ea5e9;
+  border-bottom: 2px solid #0ea5e9;
+}
+
+.records-table tbody tr.total-row td.total-label {
+  color: #0369a1;
+  font-size: 0.95rem;
+  text-align: right;
+  padding-right: 1.5rem;
+}
+
+.records-table tbody tr.total-row td.total-quantity {
+  color: #0369a1;
+  font-size: 1.1rem;
+  font-weight: 800;
+  text-align: center;
+  background: rgba(14, 165, 233, 0.1);
+  border-radius: 6px;
+}
+
 /* ── Per-column search ── */
 .search-row th {
   padding: 0.75rem 1rem;
