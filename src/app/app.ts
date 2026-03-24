@@ -446,26 +446,36 @@ export class App implements OnInit {
     console.log('Export: Current page:', this.currentPage);
     console.log('Export: Page size:', this.pageSize);
     
-    // Log first and last few filtered books to verify data
-    if (this.filteredBooks.length > 0) {
-      console.log('Export: First filtered book:', this.filteredBooks[0]);
-      console.log('Export: Last filtered book:', this.filteredBooks[this.filteredBooks.length - 1]);
-      console.log('Export: Last filtered book ID:', this.filteredBooks[this.filteredBooks.length - 1]?.id);
+    // Use all books for export, not filtered books, unless filters are actively applied
+    const booksToExport = this.filteredBooks.length < this.books.length ? this.filteredBooks : this.books;
+    console.log('Export: Books to export count:', booksToExport.length);
+    
+    // Log first and last few books to verify data
+    if (booksToExport.length > 0) {
+      console.log('Export: First book:', booksToExport[0]);
+      console.log('Export: Last book:', booksToExport[booksToExport.length - 1]);
+      console.log('Export: Last book ID:', booksToExport[booksToExport.length - 1]?.id);
     }
     
-    const data = this.filteredBooks.map((b, i) => ({
-      'S.No': i + 1,
-      'Book Title': b.title,
-      'Author': b.author,
-      'ISBN': b.isbn,
-      'Purchase Date': b.purchaseDate,
-      'Price': b.price,
-      'Qty': b.quantity,
-      'Supply': b.supply,
-      'Rack': b.rack,
-      'Accession Number': b.accessionNum,
-      'Publisher': b.publisher
-    }));
+    // Find the actual S.No for each book from the original books array
+    const data = booksToExport.map((book) => {
+      const actualIndex = this.books.findIndex(b => b.id === book.id);
+      const actualSNo = actualIndex >= 0 ? actualIndex + 1 : 0;
+      
+      return {
+        'S.No': actualSNo,
+        'Book Title': book.title,
+        'Author': book.author,
+        'ISBN': book.isbn,
+        'Purchase Date': book.purchaseDate,
+        'Price': book.price,
+        'Qty': book.quantity,
+        'Supply': book.supply,
+        'Rack': book.rack,
+        'Accession Number': book.accessionNum,
+        'Publisher': book.publisher
+      };
+    });
 
     console.log('Export: Data array length (before total row):', data.length);
     
@@ -479,7 +489,7 @@ export class App implements OnInit {
     if (data.length > 0) {
       data.push({
         'S.No': 0,
-        'Book Title': '',
+        'Book Title': 'Total',
         'Author': '',
         'ISBN': '',
         'Purchase Date': '',
@@ -504,8 +514,9 @@ export class App implements OnInit {
 
     // Style the total row
     if (data.length > 0) {
-      const totalRow = data.length - 1;
+      const totalRow = data.length + 2;
       const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+      console.log('totalRow', totalRow, 'range', range);
       
       // Add "Totals" label in the first column of the total row
       const labelCell = XLSX.utils.encode_cell({ r: totalRow, c: 0 });
@@ -530,6 +541,8 @@ export class App implements OnInit {
           alignment: { horizontal: 'center' }
         }
       };
+
+      console.log('labelCell', labelCell, 'qtyCell', qtyCell);
       
       // Clear other cells in total row to avoid unwanted data
       for (let col = 1; col <= 10; col++) {
