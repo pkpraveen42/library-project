@@ -1,4 +1,4 @@
-<div class="page-wrapper">
+<div class="page-wrapper" (click)="handleGlobalClick($event)">
 
   <h1 class="page-heading">Library Book Purchase Management</h1>
 
@@ -50,83 +50,82 @@
 
     <!-- Form Header -->
     <div class="form-header">
-      <h3>Book Information</h3>
+      <div class="form-title-wrapper">
+        <div class="form-icon">
+          <div class="icon-layer layer-1"></div>
+          <div class="icon-layer layer-2"></div>
+          <div class="icon-layer layer-3"></div>
+        </div>
+        <div class="form-title-text">
+          <h3 class="form-title">Book Information</h3>
+          <p class="form-subtitle">Library catalogue entry form</p>
+        </div>
+      </div>
     </div>
 
-    <!-- Row 0: S.No -->
+    <!-- Row 1: S.No, Accession Number -->
     <div class="form-row">
-      <div class="field-group">
-        <label>S.No</label>
+      <div class="field-group sno-group">
+        <label>S.NO</label>
         <input type="text" [value]="isEditMode ? (currentBookIndex + 1) : getNextSerialNumber()" disabled
-          placeholder="S.No" class="sno-input" />
+          placeholder="S.No" class="special-input" />
+      </div>
+      <div class="field-group accession-group">
+        <label>ACCESSION NUMBER</label>
+        <input type="text" [value]="isEditMode ? accessionNum : generateAccessionNumber()" disabled
+          placeholder="Accession Number" class="special-input" />
       </div>
     </div>
 
-    <!-- Row 1: Book Title, Author, ISBN -->
+    <!-- Row 2: Book Title, Author, Publisher, ISBN -->
     <div class="form-row">
       <div class="field-group">
-        <label>Book Title</label>
-        <input type="text" [(ngModel)]="title" placeholder="Book Title" 
-           />
+        <label>BOOK TITLE <span class="required">*</span></label>
+        <input type="text" [(ngModel)]="title" placeholder="Book Title" #titleInput />
       </div>
       <div class="field-group">
-        <label>Author</label>
-        <input type="text" [(ngModel)]="author" placeholder="Author" 
-           />
+        <label>AUTHOR <span class="required">*</span></label>
+        <input type="text" [(ngModel)]="author" placeholder="Author" />
       </div>
       <div class="field-group">
+        <label>PUBLISHER <span class="required">*</span></label>
+        <input type="text" [(ngModel)]="publisher" placeholder="Publisher" />
+      </div>
+      <div class="field-group" style="display: none;">
         <label>ISBN</label>
-        <input type="text" [(ngModel)]="isbn" placeholder="ISBN" 
-           />
+        <input type="text" [(ngModel)]="isbn" placeholder="ISBN" />
       </div>
     </div>
 
-    <!-- Row 2: Purchase Date, Price, Qty -->
-    <div class="form-row">
-      <div class="field-group">
-        <label>Purchase Date</label>
-        <input type="date" [(ngModel)]="purchaseDate" (change)="applyFilters()" 
-           />
+    <!-- Row 3: Purchase Date, Price, Qty -->
+    <div class="form-row row-3">
+      <div class="field-group date-group">
+        <label>PURCHASE DATE <span class="required">*</span></label>
+        <input type="date" [(ngModel)]="purchaseDate" (change)="applyFilters()" />
       </div>
-      <div class="field-group">
-        <label>Price</label>
-        <input type="number" [(ngModel)]="price" placeholder="Price" 
-           />
+      <div class="field-group price-group">
+        <label>PRICE</label>
+        <input type="number" [(ngModel)]="price" placeholder="0" />
       </div>
-      <div class="field-group">
-        <label>Qty</label>
-        <input type="number" [(ngModel)]="quantity" placeholder="Quantity" 
-           />
+      <div class="field-group qty-group">
+        <label>QTY <span class="required">*</span></label>
+        <input type="number" [(ngModel)]="quantity" placeholder="1" />
       </div>
     </div>
 
-    <!-- Row 3: Supply, Rack, Accession Number -->
-    <div class="form-row">
-      <div class="field-group">
-        <label>Supply</label>
+    <!-- Row 4: Supply, Rack -->
+    <div class="form-row row-4">
+      <div class="field-group supply-group">
+        <label>SUPPLY <span class="required">*</span></label>
         <select [(ngModel)]="supply">
           <option *ngFor="let option of supplyOptions" [value]="option">{{ option }}</option>
         </select>
       </div>
-      <div class="field-group">
-        <label>Rack</label>
+      <div class="field-group rack-group">
+        <label>RACK</label>
         <select [(ngModel)]="rack">
           <option *ngFor="let option of rackOptions" [value]="option">{{ option }}</option>
         </select>
-      </div>
-      <div class="field-group">
-        <label>Accession Number</label>
-        <input type="text" [value]="isEditMode ? accessionNum : generateAccessionNumber()" disabled
-          placeholder="Accession Number" class="accession-input" />
-      </div>
-    </div>
-
-    <!-- Row 4: Publisher -->
-    <div class="form-row">
-      <div class="field-group">
-        <label>Publisher</label>
-        <input type="text" [(ngModel)]="publisher" placeholder="Publisher" 
-          />
       </div>
     </div>
 
@@ -193,7 +192,7 @@
         <tbody>
           <tr *ngFor="let book of pagedBooks; let i = index" [class.selected-row]="selectedBook?.id === book.id"
             (click)="selectBook(book)" style="cursor:pointer">
-            <td>{{ (currentPage - 1) * pageSize + i + 1 }}</td>
+            <td>{{ books.indexOf(book) + 1 }}</td>
             <td>{{ book.title }}</td>
             <td>{{ book.author }}</td>
             <td>{{ book.purchaseDate }}</td>

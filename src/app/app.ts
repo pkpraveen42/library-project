@@ -1,9 +1,17 @@
-import { Component, inject, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectorRef, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { BookService } from './book.service';
 import { Book } from './book.model';
 import * as XLSX from 'xlsx';
+
+// Extend Window interface for Electron detection
+declare global {
+  interface Window {
+    process?: any;
+    electron?: any;
+  }
+}
 
 @Component({
   selector: 'app-root',
@@ -12,9 +20,14 @@ import * as XLSX from 'xlsx';
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
-export class App implements OnInit {
+export class App implements OnInit, AfterViewInit {
   private bookService = inject(BookService);
   private cdr = inject(ChangeDetectorRef);
+
+  @ViewChild('titleInput', { static: false }) titleInput!: ElementRef<HTMLInputElement>;
+
+  // Detect if running in Electron environment
+  private isElectron: boolean = false;
 
   books: Book[] = [];
   filteredBooks: Book[] = [];
@@ -73,6 +86,10 @@ export class App implements OnInit {
   pageNumbers: number[] = [];
 
   ngOnInit() {
+    // Detect if running in Electron environment
+    this.isElectron = this.checkElectronEnvironment();
+    console.log('App: Running in Electron:', this.isElectron);
+
     console.log('App: Component initialized, subscribing to BookService');
 
     // Load initial excel path from server
@@ -107,33 +124,244 @@ export class App implements OnInit {
   }
 
   updateExcelPath() {
-    if (!this.excelPath) return;
+    if (!this.excelPath) {
+      alert('Please enter an Excel file path');
+      // Focus the Book Title field after validation error
+      setTimeout(() => {
+        this.focusBookTitleField();
+      }, 100);
+      return;
+    }
+    
+    // Show loading message
+    const loadingMessage = 'Updating Excel path...';
+    console.log(loadingMessage);
+    
     this.bookService.updateExcelPath(this.excelPath).subscribe({
       next: (res) => {
-        alert('Excel path updated successfully!');
-        this.manualRefresh();
+        console.log('Path update response:', res);
+        alert('Excel path updated successfully!\n\nIf the grid shows no data, please ensure:\n1. The Excel file exists at the specified path\n2. The Excel file contains data with proper headers\n3. The file is not open in another program');
+        
+        // Focus the Book Title field after successful path update
+        setTimeout(() => {
+          this.focusBookTitleField();
+        }, 100);
+        
+        // Add small delay to ensure server processes the path update
+        setTimeout(() => {
+          this.manualRefresh();
+        }, 500);
       },
-      error: (err) => alert('Failed to update Excel path: ' + (err.error?.error || err.message))
+      error: (err) => {
+        console.error('Path update error:', err);
+        alert('Failed to update Excel path: ' + (err.error?.error || err.message) + 
+              '\n\nPlease check:\n1. The file path is correct\n2. The file exists\n3. You have permission to access the file');
+        
+        // Focus the Book Title field after error
+        setTimeout(() => {
+          this.focusBookTitleField();
+        }, 100);
+      }
     });
   }
 
   manualRefresh() {
     console.log('App: Manual refresh requested for path:', this.excelPath);
-    if (this.excelPath) {
-      // Sync path to server, then refresh
-      this.bookService.updateExcelPath(this.excelPath).subscribe({
-        next: () => {
-          console.log('App: Path synced for refresh');
-          this.bookService.refreshData();
-        },
-        error: (err) => {
-          console.error('App: Failed to sync path before refresh:', err);
-          this.bookService.refreshData(); // Try refresh anyway
-        }
-      });
+    // Just refresh data - path was already set in updateExcelPath()
+    this.bookService.refreshData();
+    
+    // Focus the Book Title field after refresh
+    setTimeout(() => {
+      this.focusBookTitleField();
+    }, 100);
+  }
+
+  ngAfterViewInit() {
+    // Focus the Book Title field after the component has initialized
+    setTimeout(() => {
+      this.focusBookTitleField();
+    }, 100);
+  }
+
+  // ── Helper Methods ───────────────────────────────
+  checkElectronEnvironment(): boolean {
+    // Check if running in Electron
+    return !!(window && window.process && window.process.type) ||
+           !!(window.electron) ||
+           navigator.userAgent.toLowerCase().indexOf('electron') > -1;
+  }
+
+  // ── Focus Methods ───────────────────────────────
+  focusBookTitleField() {
+    console.log('App: Attempting to focus Book Title field');
+    console.log('App: Running in Electron:', this.isElectron);
+    
+    // For Electron, use a simpler approach to avoid field locking
+    if (this.isElectron) {
+      this.focusBookTitleElectron();
     } else {
-      this.bookService.refreshData();
+      this.focusBookTitleBrowser();
     }
+  }
+
+  focusBookTitleElectron() {
+    console.log('App: Using Electron focus method');
+    
+    // For Electron, use a much gentler approach to prevent field locking
+    setTimeout(() => {
+      if (this.titleInput && this.titleInput.nativeElement) {
+        try {
+          const element = this.titleInput.nativeElement;
+          
+          // Check if field is enabled and not readonly
+          if (!element.disabled && !element.readOnly) {
+            console.log('App: Electron - Field is enabled, attempting gentle focus');
+            
+            // Release any existing focus first to prevent locking
+            if (document.activeElement && document.activeElement !== element) {
+              (document.activeElement as HTMLElement).blur();
+            }
+            
+            // Very gentle focus approach with minimal intervention
+            setTimeout(() => {
+              try {
+                element.focus();
+                
+                // Only attempt selection if focus was successful and doesn't interfere
+                setTimeout(() => {
+                  if (document.activeElement === element && element.value) {
+                    try {
+                      element.select();
+                      console.log('App: Electron - Focus and selection successful');
+                    } catch (selectError) {
+                      console.log('App: Electron - Selection failed, but focus works');
+                    }
+                  } else {
+                    console.log('App: Electron - Focus successful, selection skipped');
+                  }
+                }, 100);
+              } catch (focusError) {
+                console.warn('App: Electron - Focus failed, field might be locked');
+                // Try to release any potential modal state
+                this.releaseModalState();
+              }
+            }, 50); // Very short delay
+          } else {
+            console.warn('App: Electron - Field is disabled or readonly, skipping focus');
+          }
+        } catch (error) {
+          console.error('App: Electron - Focus error:', error);
+          this.releaseModalState();
+        }
+      } else {
+        console.warn('App: Electron - Title input element not available');
+      }
+    }, 300); // Longer initial delay to prevent interference
+  }
+
+  releaseModalState() {
+    // Helper method to release any modal-like state in Electron
+    try {
+      // Blur any active elements
+      if (document.activeElement) {
+        (document.activeElement as HTMLElement).blur();
+      }
+      
+      // Clear any selections
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+      }
+      
+      // Reset focus to body to release modal state
+      setTimeout(() => {
+        if (document.body) {
+          document.body.focus();
+        }
+        
+        // Then try to focus the title field again
+        setTimeout(() => {
+          if (this.titleInput && this.titleInput.nativeElement) {
+            this.titleInput.nativeElement.focus();
+          }
+        }, 50);
+      }, 50);
+    } catch (error) {
+      console.warn('App: Electron - Error releasing modal state:', error);
+    }
+  }
+
+  handleGlobalClick(event: MouseEvent) {
+    // Handle global clicks to prevent modal-like behavior in Electron
+    if (this.isElectron) {
+      // Small delay to allow the click event to complete
+      setTimeout(() => {
+        // Check if we need to release any modal state
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement.tagName === 'INPUT') {
+          // If an input is focused, ensure it's not in a locked state
+          const input = activeElement as HTMLInputElement;
+          if (input.disabled || input.readOnly) {
+            console.log('App: Electron - Detected locked input, releasing modal state');
+            this.releaseModalState();
+          }
+        }
+      }, 10);
+    }
+  }
+
+  focusBookTitleBrowser() {
+    console.log('App: Using browser focus method');
+    
+    const attemptFocus = (attempt: number) => {
+      console.log(`App: Browser focus attempt #${attempt}`);
+      
+      if (this.titleInput && this.titleInput.nativeElement) {
+        console.log('App: Browser - Found titleInput element, focusing...');
+        
+        try {
+          const element = this.titleInput.nativeElement;
+          
+          // Check if field is enabled
+          if (!element.disabled && !element.readOnly) {
+            element.focus();
+            element.select();
+            
+            // Verify focus was successful
+            setTimeout(() => {
+              if (document.activeElement === this.titleInput.nativeElement) {
+                console.log('App: Browser - Focus successful - Book Title field is now active');
+              } else {
+                console.warn('App: Browser - Focus may not have worked, retrying...');
+                if (attempt < 3) {
+                  setTimeout(() => attemptFocus(attempt + 1), 100);
+                } else {
+                  console.error('App: Browser - Failed to focus Book Title field after 3 attempts');
+                }
+              }
+            }, 50);
+          } else {
+            console.warn('App: Browser - Field is disabled or readonly');
+          }
+          
+        } catch (error) {
+          console.error('App: Browser - Error during focus:', error);
+          if (attempt < 3) {
+            setTimeout(() => attemptFocus(attempt + 1), 100);
+          }
+        }
+      } else {
+        console.warn(`App: Browser - titleInput reference not available on attempt ${attempt}, retrying...`);
+        if (attempt < 3) {
+          setTimeout(() => attemptFocus(attempt + 1), 100);
+        } else {
+          console.error('App: Browser - Could not focus title field - element not found after 3 attempts');
+        }
+      }
+    };
+    
+    // Start first attempt
+    attemptFocus(1);
   }
 
   // ── Selection ────────────────────────────────
@@ -164,9 +392,16 @@ export class App implements OnInit {
     this.accessionNum = book.accessionNum || '';
     this.publisher = book.publisher || '';
     
-    // Force change detection
+    // Force change detection and wait for DOM to update
     this.cdr.detectChanges();
     console.log('App: After change detection - title:', this.title);
+    
+    // Focus the Book Title field after selecting a book
+    // Use longer delay for Electron to prevent field locking
+    const focusDelay = this.isElectron ? 400 : 300;
+    setTimeout(() => {
+      this.focusBookTitleField();
+    }, focusDelay);
   }
 
   // ── Helper Functions ───────────────────────────────
@@ -231,8 +466,12 @@ export class App implements OnInit {
 
   // ── Add ──────────────────────────────────────
   addBook() {
-    if (!this.title || !this.author || !this.isbn || !this.purchaseDate || this.price <= 0 || this.quantity <= 0 || !this.supply || !this.rack || !this.publisher) {
+    if (!this.title || !this.author || !this.publisher || !this.purchaseDate || this.quantity <= 0 || !this.supply) {
       alert('Please fill all fields correctly.');
+      // Focus the Book Title field after validation error
+      setTimeout(() => {
+        this.focusBookTitleField();
+      }, 100);
       return;
     }
 
@@ -240,6 +479,10 @@ export class App implements OnInit {
     const duplicate = this.checkDuplicate(this.title, this.author, this.isbn, this.purchaseDate, this.price, this.quantity, this.supply, this.rack, this.generateAccessionNumber(), this.publisher);
     if (duplicate.isDuplicate) {
       alert(`This data already exists S.No ${duplicate.sNo}`);
+      // Focus the Book Title field after duplicate error
+      setTimeout(() => {
+        this.focusBookTitleField();
+      }, 100);
       return;
     }
 
@@ -265,13 +508,22 @@ export class App implements OnInit {
     });
     this.resetForm();
     alert('Book added successfully!');
+    
+    // Focus the Book Title field for the next entry
+    setTimeout(() => {
+      this.focusBookTitleField();
+    }, 100);
   }
 
   // ── Update ───────────────────────────────────
   updateBook() {
     if (!this.currentBookId || !this.isEditMode) return;
-    if (!this.title || !this.author || !this.isbn || !this.purchaseDate || this.price <= 0 || this.quantity <= 0 || !this.supply || !this.rack || !this.publisher) {
+    if (!this.title || !this.author || !this.publisher || !this.purchaseDate || this.quantity <= 0 || !this.supply) {
       alert('Please fill all fields correctly.');
+      // Focus the Book Title field after validation error
+      setTimeout(() => {
+        this.focusBookTitleField();
+      }, 100);
       return;
     }
 
@@ -279,6 +531,10 @@ export class App implements OnInit {
     const duplicateCheck = this.checkDuplicate(this.title, this.author, this.isbn, this.purchaseDate, this.price, this.quantity, this.supply, this.rack, this.generateAccessionNumber(), this.publisher, this.currentBookId);
     if (duplicateCheck.isDuplicate) {
       alert(`This data already exists S.No ${duplicateCheck.sNo}`);
+      // Focus the Book Title field after duplicate error
+      setTimeout(() => {
+        this.focusBookTitleField();
+      }, 100);
       return;
     }
     const updatedBook: Book = {
@@ -303,6 +559,11 @@ export class App implements OnInit {
     });
     alert('Book updated successfully in Excel!');
     this.resetForm();
+    
+    // Focus the Book Title field for the next entry
+    setTimeout(() => {
+      this.focusBookTitleField();
+    }, 100);
   }
 
   // ── Delete ───────────────────────────────────
@@ -311,6 +572,11 @@ export class App implements OnInit {
     if (confirm('Are you sure you want to delete this book?')) {
       this.bookService.deleteBook(this.currentBookId);
       this.resetForm();
+      
+      // Focus the Book Title field after deletion
+      setTimeout(() => {
+        this.focusBookTitleField();
+      }, 100);
     }
   }
 
@@ -331,6 +597,11 @@ export class App implements OnInit {
     this.accessionNum = '';
     this.publisher = '';
     this.cdr.detectChanges();
+    
+    // Focus the Book Title field after reset
+    setTimeout(() => {
+      this.focusBookTitleField();
+    }, 50);
   }
 
   // ── Filter ───────────────────────────────────
@@ -367,9 +638,9 @@ export class App implements OnInit {
       const matchAccession = match(book.accessionNum, this.colSearch.accessionNum);
       const matchPublisher = match(book.publisher, this.colSearch.publisher);
 
-      // S.No search (against index + 1)
-      const sNo = (index + 1).toString();
-      const matchSNo = !this.colSearch.sNo || sNo.includes(this.colSearch.sNo);
+      // S.No search (against the book's position in the full books array)
+      const sNo = (this.books.indexOf(book) + 1).toString();
+      const matchSNo = !this.colSearch.sNo || sNo === this.colSearch.sNo;
 
       const isMatch = matchTitle && matchAuthor && matchDate && matchPrice && matchQty &&
         matchSupply && matchRack && matchAccession && matchPublisher && matchSNo;
@@ -574,6 +845,11 @@ export class App implements OnInit {
     anchor.download = fileName;
     anchor.click();
     URL.revokeObjectURL(url);
+    
+    // Focus the Book Title field after export
+    setTimeout(() => {
+      this.focusBookTitleField();
+    }, 100);
   }
 
   // ── Get Total Quantity ───────────────────────

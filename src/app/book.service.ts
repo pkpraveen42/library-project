@@ -84,7 +84,7 @@ export class BookService {
         if (data && data.length > 0) {
           console.log('BookService: First record:', JSON.stringify(data[0]));
         } else {
-          console.warn('BookService: Server returned empty book list.');
+          console.warn('BookService: Server returned empty book list. Excel file may be empty or not found.');
         }
         this.books = data || [];
         this.booksSubject.next(this.books);
@@ -94,6 +94,8 @@ export class BookService {
         console.error('API URL used:', this.apiUrl);
         if (err.status === 0) {
           console.error('Could not reach backend. Is the server running on port 3008?');
+        } else if (err.status === 500) {
+          console.error('Server error - Excel file may be corrupted or path invalid');
         }
         this.booksSubject.next([]);
       }

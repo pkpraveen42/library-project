@@ -1,6 +1,8 @@
 {
   "name": "library-purchase-app",
   "version": "0.0.0",
+  "description": "Library Purchase Management Application",
+  "author": "Library App Developer",
   "main": "main.js",
   "scripts": {
     "ng": "ng",
@@ -13,7 +15,8 @@
     "dev": "concurrently \"npm run server\" \"npm run start:frontend\"",
     "electron": "electron .",
     "electron:dev": "concurrently \"npm run server\" \"npm run start:frontend\" \"wait-on http://localhost:4200 && sleep 3 && cross-env NODE_ENV=development electron .\"",
-    "package": "npm run build && npx electron-packager . LibraryApp --platform=win32 --arch=x64 --overwrite"
+    "package": "npm run build && npx electron-packager . LibraryApp --platform=win32 --arch=x64 --overwrite --icon=icon.ico",
+    "build:exe": "npm run build && electron-builder --win"
   },
   "private": true,
   "packageManager": "npm@10.9.2",
@@ -38,10 +41,39 @@
     "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
     "electron": "^41.0.3",
+    "electron-builder": "^26.8.1",
     "electron-packager": "^17.1.2",
     "http-proxy-middleware": "^3.0.5",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2",
     "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.library.purchase.app",
+    "productName": "LibraryPurchaseManagement",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "server.js",
+      "package.json",
+      "node_modules/**/*",
+      "!src/**/*",
+      "!.angular/**/*",
+      "!*.md",
+      "!.gitignore"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }

@@ -1,0 +1,18 @@
+@echo off 
+title Library Purchase Management 
+echo Starting Library Purchase Management... 
+echo. 
+if "%1"=="--debug" ( 
+    echo Debug mode enabled 
+    set ELECTRON_IS_DEV=true 
+) 
+echo Using Electron: node_modules\electron\dist\electron.exe 
+echo. 
+"node_modules\electron\dist\electron.exe" . 
+if errorlevel 1 ( 
+    echo. 
+    echo [ERROR] Application failed to start 
+    echo Please check installation and Node.js availability 
+    pause 
+    exit /b 1 
+) 

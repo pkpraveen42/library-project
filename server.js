@@ -60,7 +60,21 @@ function getWorkbook() {
 function getSheetData(wb) {
   const sheetName = wb.SheetNames[0];
   const ws = wb.Sheets[sheetName];
-  return XLSX.utils.sheet_to_json(ws);
+  const data = XLSX.utils.sheet_to_json(ws);
+  
+  // Convert Excel date numbers to proper date strings
+  return data.map(row => {
+    const newRow = { ...row };
+    
+    // Convert Excel date numbers to YYYY-MM-DD format
+    if (row['Purchase Date'] && typeof row['Purchase Date'] === 'number') {
+      const date = XLSX.SSF.parse_date_code(row['Purchase Date']);
+      const dateStr = `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`;
+      newRow['Purchase Date'] = dateStr;
+    }
+    
+    return newRow;
+  });
 }
 
 function saveToExcel(data) {
@@ -109,7 +123,8 @@ function saveToExcel(data) {
 // GET all books
 app.get('/api/books', (req, res) => {
   try {
-    console.log(`GET /api/books: Request received. Current path: ${excelPath}`);
+    console.log(`GET /api/books: Request received. Current path: "${excelPath}"`);
+    console.log(`GET /api/books: Path exists: ${fs.existsSync(excelPath)}`);
 
     if (!fs.existsSync(excelPath)) {
       console.warn(`GET /api/books: File not found at ${excelPath}`);
@@ -120,6 +135,12 @@ app.get('/api/books', (req, res) => {
     const wb = XLSX.readFile(excelPath);
     const data = getSheetData(wb);
     console.log(`GET /api/books: Found ${data.length} raw rows in Excel file: ${excelPath}`);
+    console.log(`GET /api/books: Sheet names: ${wb.SheetNames}`);
+
+    // Log first few rows to debug data structure
+    if (data.length > 0) {
+      console.log(`GET /api/books: First raw row:`, JSON.stringify(data[0]));
+    }
 
     // Map Excel format back to Book model
     const books = data.map((row, index) => ({
@@ -137,9 +158,13 @@ app.get('/api/books', (req, res) => {
     }));
 
     console.log(`GET /api/books: Returning ${books.length} mapped records`);
+    if (books.length > 0) {
+      console.log(`GET /api/books: First mapped book:`, JSON.stringify(books[0]));
+    }
     res.status(200).send(books);
   } catch (error) {
     console.error('Error in GET /api/books:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).send({ error: 'Failed to read Excel file', details: error.message });
   }
 });
@@ -248,12 +273,21 @@ app.listen(port, () => {
   console.log(`  Health http://localhost:${port}/health`);
   console.log('');
   console.log('CORS is set to dynamic origin (origin: true)');
-  console.log('Excel file path:', excelPath);
+  console.log('Excel file path:', excelPath || 'Not set');
 }).on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${port} is already in use. Please close the other application or use a different port.`);
+    console.error(`⚠️  Port ${port} is already in use.`);
+    console.error('💡 Please close the other application or restart the application.');
+    console.error('💡 The application will continue to try starting...');
+    // Try to find an alternative port
+    const alternativePort = port + 1;
+    console.log(`🔄 Trying alternative port: ${alternativePort}`);
+    app.listen(alternativePort, () => {
+      console.log(`✅ Server running at http://localhost:${alternativePort}`);
+      console.log(`⚠️  Note: Frontend may need to be updated to use port ${alternativePort}`);
+    });
   } else {
-    console.error('Server error:', err);
+    console.error('❌ Server error:', err);
   }
   process.exit(1);
 });

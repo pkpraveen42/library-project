@@ -1,0 +1,3 @@
+@echo off 
+title Library Purchase Management [DEBUG] 
+call LibraryApp.exe --debug 

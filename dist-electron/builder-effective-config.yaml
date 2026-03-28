@@ -1,0 +1,25 @@
+directories:
+  output: dist-electron
+  buildResources: build
+appId: com.library.purchase.app
+productName: LibraryPurchaseManagement
+files:
+  - filter:
+      - dist/**/*
+      - main.js
+      - server.js
+      - package.json
+      - node_modules/**/*
+      - '!src/**/*'
+      - '!.angular/**/*'
+      - '!*.md'
+      - '!.gitignore'
+win:
+  target: nsis
+  icon: icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+electronVersion: 41.0.3
